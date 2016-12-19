@@ -29,14 +29,14 @@ extern "C" {
 BME280 bme280;
 RX8025 rx8025;
 
-#define MaxDataArea (512 - 4 - sizeof(int) -sizeof(time_t))
-#define MaxDataBlocks ((MaxDataArea - sizeof(int))/sizeof(AtomInfo))
+//#define MaxDataArea (512 - 4 - sizeof(int) -sizeof(time_t))
+//#define MaxDataBlocks ((MaxDataArea - sizeof(int))/sizeof(AtomInfo))
 
 const char* ssid     = "**** ssid ****";
 const char* password = "**** passwd ****";
 const char* remote_host = "http://www.biwakobass.org/atominfo.php";
-const char content_type = "Content-Type";
-const char content_value = "application/json";
+const char* content_type = "Content-Type";
+const char* content_value = "application/json";
 const char* fpath = "/f.txt";
 
 int sleepCount = 0;
@@ -185,7 +185,7 @@ int sendDataHttpServer() {
     int retval;
     WiFi.macAddress(mac);
     Serial.print("macAddress:");
-    sprintf(mac_addr, "%x:%x:%x:%x:%x:%x", mac[0], mac[1], mac[2], mac[3],mac[4],mac[5]);
+    sprintf(mac_addr, "%x%x%x%x%x%x", mac[0], mac[1], mac[2], mac[3],mac[4],mac[5]);
     Serial.println(mac_addr);
     File file = SPIFFS.open(fpath, "a+");    
     if (!file) {
@@ -195,7 +195,7 @@ int sendDataHttpServer() {
       return -1;
     }
     tmp = "{\"device\":{\"name\":\"esp8266\", \"id\":\"";
-    tmp += ssid;
+    tmp += mac_addr;
     tmp += "\"}, \"data\":[ ";
     while (file.available()) {
       tmp += file.readStringUntil('\n');
@@ -208,6 +208,8 @@ int sendDataHttpServer() {
     http.begin(remote_host);
     http.addHeader(content_type, content_value); 
     ret = http.POST(result);
+    Serial.print("json data: ");
+    Serial.println(result);
     String payload = http.getString();
     Serial.println(payload);
     http.end();
@@ -355,22 +357,22 @@ float getAnalogTemperature() {
  */
 void printDebug() {
   int intsize = sizeof(int);
-  int infosize = sizeof(AtomInfo);
+//  int infosize = sizeof(AtomInfo);
   int timesize = sizeof(time_t);
   Serial.println("---------------------------------");
   Serial.print("sizeof(int):");
   Serial.println(intsize);
-  Serial.print("sizeof(AtomInfo):");
-  Serial.println(infosize);
+//  Serial.print("sizeof(AtomInfo):");
+//  Serial.println(infosize);
   Serial.print("sizeof(time_t):");
   Serial.println(timesize);
 
-  Serial.print("MaxDataArea:");
-  Serial.println(MaxDataArea);
-  Serial.print("MaxDataBlocks:");
-  Serial.println(MaxDataBlocks);
-  Serial.print("Data:");
-  Serial.println(sizeof(Data));
+//  Serial.print("MaxDataArea:");
+//  Serial.println(MaxDataArea);
+//  Serial.print("MaxDataBlocks:");
+//  Serial.println(MaxDataBlocks);
+//  Serial.print("Data:");
+//  Serial.println(sizeof(Data));
 }
 /*
  * @brief turn on Error LED. just port set for red-led
