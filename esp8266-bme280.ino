@@ -20,17 +20,24 @@ extern "C" {
 #define SERIAL_BAURATE  115200
 #define SDA 14
 #define SCL 13
+
+//definition of wifi connection period.
+#define WIFI_CONN_PERIOD 5
+#define DEEPSLEEP_RF_MODE (WIFI_CONN_PERIOD-1)
+
 //definition of deep-sleep time
 #define PERION_1HOUR 3600000000
 #define PERIOD_30MIN 1800000000
 #define PERIOD_10MIN 600000000
 #define PERIOD_5MIN  300000000
 
+#define DEBUG	1
+
+//@note As get Vcc value, this function need to call 
+ADC_MODE(ADC_VCC);
+
 BME280 bme280;
 RX8025 rx8025;
-
-//#define MaxDataArea (512 - 4 - sizeof(int) -sizeof(time_t))
-//#define MaxDataBlocks ((MaxDataArea - sizeof(int))/sizeof(AtomInfo))
 
 const char* ssid     = "**** ssid ****";
 const char* password = "**** passwd ****";
@@ -155,6 +162,7 @@ time_t setCurrentRTC(){
   time_t current;
   //  if(rx8025.needInit()){
       current = getSntpTime();
+	  //if getSntpTime returns zero, we need to connect wifi?
       rx8025.begin(SDA, SCL);
       rx8025.writeRTC(current);
       Serial.println("connect with ntp server");
@@ -169,7 +177,7 @@ time_t setCurrentRTC(){
  * 
  * @note After sending the data suceessfully, the system will delete
  * the temporally saved data.
- * ã€€
+ * @
  * @retval 0 -> Success to send the data
  * @retval -1 -> Fail to send the data
  * @retval -2 -> Fial to remvoe the file
@@ -253,7 +261,6 @@ int saveAtomInfo() {
   sprintf(buf, "{\"timestamp\": \"%d\" , \"temp\": \"%s\", \"pre\": \"%s\", \"hum\": \"%s\" }",curtime, t, p, h);
   file.println(buf);
   file.close();
-  Serial.println("File Close data writing");
   return 0;
 }
 
@@ -287,11 +294,10 @@ uint32_t getSntpTime() {
         t = sntp_get_current_timestamp();
         delay(10);
         if (++cnt > 100) {
+			Serial.println("Could not get ntp timestamp");
             break;
         }
     }
-//    Serial.print("timestamp ntp.nict.jp:");
-//    Serial.println(t);
     return t;
 }
 
@@ -308,6 +314,11 @@ uint32_t getSntpTime() {
  *       7.enter deep-sleep mode
  */
 void setup() {
+  bool isConnect = false;
+  int vcc;
+  pinMode(12, OUTPUT);
+  digitalWrite(12, HIGH);
+  
   initSerial();   //initialize serial port   
 
   initFS();       //initialize file system
@@ -315,6 +326,8 @@ void setup() {
   initI2C();      //initialize I2C
   delay(10);
   curtime = initRTC();
+  Serial.print("RTC: ");
+  Serial.println(curtime);
   //get the count of entering deep-sleep mode
   sleepCount = getSleepCount();
   Serial.print("Sleep count:");
@@ -337,7 +350,11 @@ void setup() {
   //30min -> PERIOD_30MIN 1800000000
   //10min -> PERIOD_10MIN 600000000
   //5min  -> PERIOD_5MIN  300000000
-  ESP.deepSleep(PERIOD_5MIN, WAKE_RF_DEFAULT);
+  
+  //@note It is better to check deep-sleep mode, RF_DISABLED
+  //      if module does not connect with wifi.
+  if(sleepCount==4) ESP.deepSleep(PERIOD_5MIN, WAKE_RF_DEFAULT);
+  else              ESP.deepSleep(PERIOD_5MIN, RF_DISABLED);
   delay(1000);
 }
 
@@ -352,28 +369,20 @@ float getAnalogTemperature() {
   value = (float)(t / 1023.0 * 100);
   return value;
 }
+
 /*
  * print debug method
  */
 void printDebug() {
   int intsize = sizeof(int);
-//  int infosize = sizeof(AtomInfo);
   int timesize = sizeof(time_t);
   Serial.println("---------------------------------");
   Serial.print("sizeof(int):");
   Serial.println(intsize);
-//  Serial.print("sizeof(AtomInfo):");
-//  Serial.println(infosize);
   Serial.print("sizeof(time_t):");
   Serial.println(timesize);
-
-//  Serial.print("MaxDataArea:");
-//  Serial.println(MaxDataArea);
-//  Serial.print("MaxDataBlocks:");
-//  Serial.println(MaxDataBlocks);
-//  Serial.print("Data:");
-//  Serial.println(sizeof(Data));
 }
+
 /*
  * @brief turn on Error LED. just port set for red-led
  */
